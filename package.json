@@ -1,6 +1,6 @@
 {
   "name": "rove-stickynotes",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Rove StickyNotes, a system tray sticky notes application built with Tauri",
   "type": "module",
   "scripts": {

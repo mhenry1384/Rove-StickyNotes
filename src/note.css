@@ -40,7 +40,7 @@ body {
   align-items: center;
   justify-content: space-between;
   background: var(--titlebar);
-  padding: 0 2px 0 6px;
+  padding: 0 2px;
   cursor: default;
 }
 
