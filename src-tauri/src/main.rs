@@ -6,12 +6,13 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, PhysicalPosition, RunEvent, WebviewUrl,
     WebviewWindow, WebviewWindowBuilder, WindowEvent,
 };
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 
 const MAX_CLOSED: usize = 15;
 const SAVE_INTERVAL: Duration = Duration::from_secs(10);
@@ -38,10 +39,26 @@ struct Note {
     closed_at: Option<u64>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Data {
     notes: Vec<Note>,
     closed: Vec<Note>,
+    #[serde(default = "default_true")]
+    start_at_login: bool,
+}
+
+impl Default for Data {
+    fn default() -> Self {
+        Data {
+            notes: Vec::new(),
+            closed: Vec::new(),
+            start_at_login: true,
+        }
+    }
+}
+
+fn default_true() -> bool {
+    true
 }
 
 struct AppState {
@@ -290,6 +307,38 @@ fn bring_notes_to_front(app: &AppHandle) {
     }
 }
 
+/// Registers or unregisters the app as a login item (Windows Run key / macOS LaunchAgent).
+/// Skipped in debug builds so development runs don't point the login item at the debug exe.
+fn apply_start_at_login(app: &AppHandle, enabled: bool) {
+    if cfg!(debug_assertions) {
+        return;
+    }
+    let autolaunch = app.autolaunch();
+    // Re-enabling on every launch keeps the registered path current if the exe has moved.
+    let result = if enabled {
+        autolaunch.enable()
+    } else if autolaunch.is_enabled().unwrap_or(false) {
+        autolaunch.disable()
+    } else {
+        Ok(())
+    };
+    if let Err(e) = result {
+        eprintln!("Failed to update start at login: {}", e);
+    }
+}
+
+fn toggle_start_at_login(app: &AppHandle, item: &CheckMenuItem<tauri::Wry>) {
+    let state = app.state::<AppState>();
+    let enabled = {
+        let mut data = state.data.lock().unwrap();
+        data.start_at_login = !data.start_at_login;
+        data.start_at_login
+    };
+    state.mark_dirty();
+    let _ = item.set_checked(enabled);
+    apply_start_at_login(app, enabled);
+}
+
 fn quit(app: &AppHandle) {
     let state = app.state::<AppState>();
     state.quitting.store(true, Ordering::SeqCst);
@@ -401,6 +450,7 @@ fn main() {
             // A second launch just creates a new note in the running instance.
             create_note(app);
         }))
+        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         .invoke_handler(tauri::generate_handler![
             get_note,
             update_note_text,
@@ -440,6 +490,9 @@ fn main() {
                 }
             }
 
+            let start_at_login = handle.state::<AppState>().data.lock().unwrap().start_at_login;
+            apply_start_at_login(&handle, start_at_login);
+
             let version = app.package_info().version.to_string();
             let new_item = MenuItem::with_id(app, "new", "New Note", true, None::<&str>)?;
             let about_item = MenuItem::with_id(
@@ -451,6 +504,14 @@ fn main() {
             )?;
             let closed_item =
                 MenuItem::with_id(app, "closed", "Manage Closed", true, None::<&str>)?;
+            let login_item = CheckMenuItem::with_id(
+                app,
+                "login",
+                "Start at Login",
+                true,
+                start_at_login,
+                None::<&str>,
+            )?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(
                 app,
@@ -458,6 +519,7 @@ fn main() {
                     &new_item,
                     &closed_item,
                     &PredefinedMenuItem::separator(app)?,
+                    &login_item,
                     &about_item,
                     &PredefinedMenuItem::separator(app)?,
                     &quit_item,
@@ -469,9 +531,10 @@ fn main() {
                 .tooltip("Rove StickyNotes")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
-                .on_menu_event(|app, event| match event.id.as_ref() {
+                .on_menu_event(move |app, event| match event.id.as_ref() {
                     "new" => create_note(app),
                     "closed" => show_closed_manager(app),
+                    "login" => toggle_start_at_login(app, &login_item),
                     "quit" => quit(app),
                     _ => {}
                 })

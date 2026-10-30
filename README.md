@@ -7,7 +7,8 @@ A lightweight sticky notes app built with Tauri 2. It lives only in the Windows 
 - **Double-click the tray icon** (or choose **New Note** from its menu) to create a note.
 - Drag a note by its title bar; resize it from any edge. Notes grow as you type, up to about 10 lines, then scroll.
 - The **rectangle** button at the top left toggles always-on-top. The **✕** at the top right closes the note.
-- **Right-click the tray icon** for the menu: New Note, Manage Closed, About (shows the version), Quit.
+- **Right-click the tray icon** for the menu: New Note, Manage Closed, Start at Login, About (shows the version), Quit.
+- **Start at Login** (on by default) launches the app when you sign in to Windows or macOS. Uncheck it to turn that off.
 - **Manage Closed** lists the last 15 closed notes, newest first. Select one to preview it, then click **Restore Note**.
 
 Open notes, their positions, sizes and on-top state are saved every 10 seconds (if changed) and on quit, and restored
