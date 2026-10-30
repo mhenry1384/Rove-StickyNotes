@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-// The note grows as lines are added, up to this many; after that the text scrolls.
+// The note grows and shrinks to fit its lines, up to this many; after that the text scrolls.
 const MAX_AUTO_LINES = 10;
 // Top + bottom window border (see body in note.css).
 const BORDER = 2;
@@ -26,18 +26,22 @@ let onTop = false;
 function setPin(value) {
   onTop = value;
   pin.classList.toggle("on", onTop);
-  pin.title = onTop ? "Stop keeping on top" : "Keep on top";
+  pin.title = onTop ? "Pinned on top (click to unpin)" : "Pin on top";
 }
 
-// Grow the window so all the text is visible (up to MAX_AUTO_LINES lines).
+// Size the window to fit the text (up to MAX_AUTO_LINES lines).
 async function fitToText() {
   measure.style.width = `${text.clientWidth}px`;
   measure.value = text.value;
   const contentHeight = measure.scrollHeight;
   const maxHeight = MAX_AUTO_LINES * lineHeight + 2 * padY;
-  const wanted = Math.ceil(titlebarHeight + Math.min(contentHeight, maxHeight) + BORDER);
-  if (window.innerHeight < wanted) {
-    await invoke("grow_note", { height: wanted });
+  const textHeight = Math.min(contentHeight, maxHeight);
+  // Size the textarea right away so it never has to scroll while the window catches up;
+  // otherwise the text jumps up past the top margin for a frame on each new line.
+  text.style.height = `${textHeight}px`;
+  const wanted = Math.ceil(titlebarHeight + textHeight + BORDER);
+  if (Math.abs(window.innerHeight - wanted) >= 1) {
+    await invoke("fit_note_height", { height: wanted });
   }
 }
 
@@ -45,6 +49,35 @@ text.addEventListener("input", () => {
   invoke("update_note_text", { id, text: text.value });
   fitToText();
 });
+
+// Drag the left or right edge to change the width.
+for (const edge of document.querySelectorAll(".edge")) {
+  edge.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    edge.setPointerCapture(e.pointerId);
+    const startX = e.screenX;
+    const startWidth = window.innerWidth;
+    const right = edge.id === "edge-left" ? window.screenX + startWidth : null;
+    const onMove = (e) => {
+      const dx = e.screenX - startX;
+      const width = right === null ? startWidth + dx : startWidth - dx;
+      invoke("resize_note_width", { width, right });
+    };
+    const onUp = () => {
+      edge.removeEventListener("pointermove", onMove);
+      edge.removeEventListener("lostpointercapture", onUp);
+    };
+    edge.addEventListener("pointermove", onMove);
+    edge.addEventListener("lostpointercapture", onUp);
+  });
+}
+
+// Belt and braces for overflow: clip in note.css; the page itself should never scroll.
+window.addEventListener("scroll", () => window.scrollTo(0, 0));
+
+// Changing the width re-wraps the text, so the number of lines may change.
+window.addEventListener("resize", fitToText);
 
 titlebar.addEventListener("mousedown", (e) => {
   if (e.button === 0 && !e.target.closest("button")) {

@@ -28,6 +28,9 @@ body {
 body {
   display: flex;
   flex-direction: column;
+  /* Unlike hidden, clip can't be scrolled, so the caret on a new line (briefly below the
+     window until it grows) can't scroll the title bar out of view. */
+  overflow: clip;
   border: 1px solid var(--border);
 }
 
@@ -48,21 +51,45 @@ body {
   cursor: pointer;
 }
 
+/* Pushpin: tilted outline when off, upright and filled when the note is kept on top. */
 #pin {
-  width: 18px;
-  height: 11px;
-  border: 1.5px solid var(--ink);
-  border-radius: 2px;
+  width: 22px;
+  height: 18px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
   opacity: 0.55;
 }
 
-#pin:hover {
+#pin svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transform: rotate(40deg);
+  transition: transform 0.12s;
+}
+
+#titlebar #pin:hover {
   opacity: 0.85;
+  background: rgba(0, 0, 0, 0.12);
 }
 
 #titlebar #pin.on {
-  background: var(--ink);
-  opacity: 0.85;
+  opacity: 1;
+}
+
+#pin.on svg {
+  transform: none;
+}
+
+#pin.on .pin-head {
+  fill: currentColor;
 }
 
 #close {
@@ -95,7 +122,8 @@ body {
 }
 
 #text {
-  flex: 1 1 auto;
+  /* Height is set to fit the text by note.js; it can stretch to fill the note but not shrink. */
+  flex: 1 0 auto;
   width: 100%;
   min-height: 0;
   overflow-y: auto;
@@ -109,6 +137,24 @@ body {
   height: 0;
   overflow: hidden;
   visibility: hidden;
+}
+
+/* Width-only resize handles; the height follows the text. */
+.edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: ew-resize;
+  z-index: 1;
+}
+
+#edge-left {
+  left: 0;
+}
+
+#edge-right {
+  right: 0;
 }
 
 ::-webkit-scrollbar {

@@ -7,9 +7,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
-use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
-    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, RunEvent, WebviewUrl,
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, PhysicalPosition, RunEvent, WebviewUrl,
     WebviewWindow, WebviewWindowBuilder, WindowEvent,
 };
 
@@ -20,6 +20,7 @@ const DEFAULT_WIDTH: f64 = 270.0;
 const DEFAULT_HEIGHT: f64 = 54.0;
 const MIN_WIDTH: f64 = 120.0;
 const MIN_HEIGHT: f64 = 48.0;
+const MAX_WIDTH: f64 = 10000.0;
 const NOTE_PREFIX: &str = "note-";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -161,6 +162,12 @@ fn fit_on_screen(app: &AppHandle, note: &mut Note) {
     note.y = y.min(ay + ah - h).max(ay) as i32;
 }
 
+/// Pins a note's height so it can only be resized horizontally; its height follows its text instead.
+fn lock_height(window: &WebviewWindow, height: f64) -> tauri::Result<()> {
+    window.set_min_size(Some(LogicalSize::new(MIN_WIDTH, height)))?;
+    window.set_max_size(Some(LogicalSize::new(MAX_WIDTH, height)))
+}
+
 fn open_note_window(app: &AppHandle, note: &Note) -> tauri::Result<WebviewWindow> {
     let window = WebviewWindowBuilder::new(
         app,
@@ -169,15 +176,16 @@ fn open_note_window(app: &AppHandle, note: &Note) -> tauri::Result<WebviewWindow
     )
     .title("Sticky Note")
     .inner_size(note.width, note.height)
-    .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
     .decorations(false)
-    .resizable(true)
+    // Resizing is done by the note's own edge handles (see note.js), so only the width can change.
+    .resizable(false)
     .maximizable(false)
     .minimizable(false)
     .skip_taskbar(true)
     .always_on_top(note.on_top)
     .visible(false)
     .build()?;
+    lock_height(&window, note.height)?;
     window.set_position(PhysicalPosition::new(note.x, note.y))?;
     window.show()?;
     window.set_focus()?;
@@ -255,6 +263,20 @@ fn on_note_closed(app: &AppHandle, id: &str) {
     let _ = app.emit("closed-changed", ());
 }
 
+/// Raises every open note above other windows, keeping each note's own always-on-top setting.
+fn bring_notes_to_front(app: &AppHandle) {
+    let notes = app.state::<AppState>().data.lock().unwrap().notes.clone();
+    for note in &notes {
+        let Some(window) = app.get_webview_window(&format!("{}{}", NOTE_PREFIX, note.id)) else {
+            continue;
+        };
+        // Briefly making a window topmost raises it without needing foreground permission.
+        let _ = window.set_always_on_top(true);
+        let _ = window.set_always_on_top(note.on_top);
+        let _ = window.set_focus();
+    }
+}
+
 fn quit(app: &AppHandle) {
     let state = app.state::<AppState>();
     state.quitting.store(true, Ordering::SeqCst);
@@ -292,9 +314,9 @@ fn set_on_top(window: WebviewWindow, on_top: bool, state: tauri::State<AppState>
     }
 }
 
-/// Grows a note to the given logical height (to fit its text), keeping it on screen.
+/// Resizes a note to the given logical height (to fit its text), keeping it on screen.
 #[tauri::command]
-fn grow_note(window: WebviewWindow, height: f64, state: tauri::State<AppState>) {
+fn fit_note_height(window: WebviewWindow, height: f64, state: tauri::State<AppState>) {
     let Some(id) = note_id(window.label()) else {
         return;
     };
@@ -305,13 +327,32 @@ fn grow_note(window: WebviewWindow, height: f64, state: tauri::State<AppState>) 
             None => return,
         }
     };
-    if height <= note.height {
+    let height = height.max(MIN_HEIGHT);
+    if (height - note.height).abs() < 0.5 {
         return;
     }
     note.height = height;
     fit_on_screen(window.app_handle(), &mut note);
+    let _ = lock_height(&window, note.height);
     let _ = window.set_size(LogicalSize::new(note.width, note.height));
     let _ = window.set_position(PhysicalPosition::new(note.x, note.y));
+}
+
+/// Sets a note's width from its edge handles. When dragging the left edge, `right` is the
+/// logical x of the right edge, which stays put while the left edge moves.
+#[tauri::command]
+fn resize_note_width(window: WebviewWindow, width: f64, right: Option<f64>) {
+    let width = width.max(MIN_WIDTH);
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let Ok(size) = window.inner_size() else {
+        return;
+    };
+    let height = size.to_logical::<f64>(scale).height;
+    let _ = window.set_size(LogicalSize::new(width, height));
+    if let (Some(right), Ok(pos)) = (right, window.outer_position()) {
+        let y = pos.to_logical::<f64>(scale).y;
+        let _ = window.set_position(LogicalPosition::new(right - width, y));
+    }
 }
 
 #[tauri::command]
@@ -351,7 +392,8 @@ fn main() {
             get_note,
             update_note_text,
             set_on_top,
-            grow_note,
+            fit_note_height,
+            resize_note_width,
             get_closed,
             restore_note
         ])
@@ -420,14 +462,17 @@ fn main() {
                     "quit" => quit(app),
                     _ => {}
                 })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::DoubleClick {
+                .on_tray_icon_event(|tray, event| match event {
+                    TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } => bring_notes_to_front(tray.app_handle()),
+                    TrayIconEvent::DoubleClick {
                         button: MouseButton::Left,
                         ..
-                    } = event
-                    {
-                        create_note(tray.app_handle());
-                    }
+                    } => create_note(tray.app_handle()),
+                    _ => {}
                 })
                 .build(app)?;
 

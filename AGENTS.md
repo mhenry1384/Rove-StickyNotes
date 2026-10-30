@@ -17,3 +17,7 @@ Every time you do a release build (`npm run build`):
    ```powershell
    Start-Process "src-tauri\target\release\rove-stickynotes.exe"
    ```
+
+## Installers
+
+Never create an installer (MSI, NSIS, etc.) unless explicitly asked. Release builds use `tauri build --no-bundle`, which produces only the executable. To build installers when asked, run `npx tauri build` (bundling is configured in `src-tauri/tauri.conf.json`).

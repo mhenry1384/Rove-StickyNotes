@@ -8,10 +8,17 @@
   </head>
   <body>
     <div id="titlebar">
-      <button id="pin" title="Keep on top"></button>
+      <button id="pin" title="Keep on top">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path class="pin-head" d="M5 1.5H11L10 2.5V6L12.5 9H3.5L6 6V2.5Z" />
+          <path d="M8 9V14.5" />
+        </svg>
+      </button>
       <button id="close" title="Close">&#x2715;</button>
     </div>
     <textarea id="text" spellcheck="false"></textarea>
+    <div class="edge" id="edge-left"></div>
+    <div class="edge" id="edge-right"></div>
     <textarea id="measure" tabindex="-1" aria-hidden="true"></textarea>
     <script type="module" src="/src/note.js"></script>
   </body>
