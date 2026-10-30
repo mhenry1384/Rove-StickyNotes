@@ -1,0 +1,11 @@
+{
+  "identifier": "main",
+  "description": "Permissions for sticky note windows and the closed notes manager.",
+  "windows": ["note-*", "closed"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-close",
+    "core:window:allow-set-focus"
+  ]
+}

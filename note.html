@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sticky Note</title>
+    <link rel="stylesheet" href="/src/note.css" />
+  </head>
+  <body>
+    <div id="titlebar">
+      <button id="pin" title="Keep on top"></button>
+      <button id="close" title="Close">&#x2715;</button>
+    </div>
+    <textarea id="text" spellcheck="false"></textarea>
+    <textarea id="measure" tabindex="-1" aria-hidden="true"></textarea>
+    <script type="module" src="/src/note.js"></script>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Closed Notes - Rove StickyNotes</title>
+    <link rel="stylesheet" href="/src/closed.css" />
+  </head>
+  <body>
+    <aside>
+      <h1>Recently Closed</h1>
+      <ul id="list"></ul>
+      <p id="empty" hidden>No closed notes.</p>
+    </aside>
+    <main>
+      <div id="preview-wrap">
+        <div id="preview" class="note" hidden>
+          <div class="note-titlebar"></div>
+          <div id="preview-text" class="note-text"></div>
+        </div>
+        <p id="hint">Select a note to preview it.</p>
+      </div>
+      <footer>
+        <span id="closed-at"></span>
+        <button id="restore" disabled>Restore Note</button>
+      </footer>
+    </main>
+    <script type="module" src="/src/closed.js"></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+# Node/Vite
+node_modules/
+dist/
+
+# Tauri/Rust
+src-tauri/target/
+src-tauri/gen/
+
+# OS
+.DS_Store

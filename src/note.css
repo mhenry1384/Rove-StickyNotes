@@ -1,0 +1,121 @@
+:root {
+  --titlebar-height: 22px;
+  --line-height: 20px;
+  --pad-y: 4px;
+  --pad-x: 8px;
+  --note: #fff7a1;
+  --titlebar: #f6e05e;
+  --border: #d4b52a;
+  --ink: #3b3200;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--note);
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  user-select: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+}
+
+#titlebar {
+  flex: 0 0 var(--titlebar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--titlebar);
+  padding: 0 2px 0 6px;
+  cursor: default;
+}
+
+#titlebar button {
+  background: transparent;
+  color: var(--ink);
+  padding: 0;
+  cursor: pointer;
+}
+
+#pin {
+  width: 18px;
+  height: 11px;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  opacity: 0.55;
+}
+
+#pin:hover {
+  opacity: 0.85;
+}
+
+#titlebar #pin.on {
+  background: var(--ink);
+  opacity: 0.85;
+}
+
+#close {
+  width: 22px;
+  height: 18px;
+  border: none;
+  font-size: 12px;
+  line-height: 18px;
+  border-radius: 3px;
+  opacity: 0.65;
+}
+
+#titlebar #close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+#text,
+#measure {
+  font: inherit;
+  line-height: var(--line-height);
+  padding: var(--pad-y) var(--pad-x);
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+#text {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  user-select: text;
+}
+
+#measure {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
