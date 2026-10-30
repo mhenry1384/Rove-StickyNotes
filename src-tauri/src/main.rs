@@ -23,6 +23,10 @@ const MIN_WIDTH: f64 = 120.0;
 const MIN_HEIGHT: f64 = 48.0;
 const MAX_WIDTH: f64 = 10000.0;
 const NOTE_PREFIX: &str = "note-";
+// Gap between a new note and the right edge of the screen.
+const NEW_NOTE_MARGIN: f64 = 30.0;
+#[cfg(target_os = "macos")]
+const DOUBLE_CLICK_INTERVAL: Duration = Duration::from_millis(500);
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Note {
@@ -220,23 +224,24 @@ fn create_note(app: &AppHandle) {
         on_top: true,
         closed_at: None,
     };
-    // Open horizontally near the mouse (i.e. near the tray icon) but vertically centred in the
-    // work area of the monitor under the mouse, then pull it fully on screen.
-    if let Ok(pos) = app.cursor_position() {
-        note.x = pos.x as i32 - 140;
-        note.y = pos.y as i32 - 120;
-        let monitor = app.available_monitors().unwrap_or_default().into_iter().find(|m| {
+    // Open just inside the right edge and vertically centred in the work area of the monitor
+    // under the mouse (falling back to the primary monitor), then pull it fully on screen.
+    let monitor = app.cursor_position().ok().and_then(|pos| {
+        app.available_monitors().unwrap_or_default().into_iter().find(|m| {
             let (p, s) = (m.position(), m.size());
             pos.x >= p.x as f64
                 && pos.x < p.x as f64 + s.width as f64
                 && pos.y >= p.y as f64
                 && pos.y < p.y as f64 + s.height as f64
-        });
-        if let Some(m) = monitor {
-            let wa = m.work_area();
-            let h = (note.height * m.scale_factor()).round() as i32;
-            note.y = wa.position.y + (wa.size.height as i32 - h) / 2;
-        }
+        })
+    });
+    if let Some(m) = monitor.or_else(|| app.primary_monitor().ok().flatten()) {
+        let wa = m.work_area();
+        let w = (note.width * m.scale_factor()).round() as i32;
+        let h = (note.height * m.scale_factor()).round() as i32;
+        let margin = (NEW_NOTE_MARGIN * m.scale_factor()).round() as i32;
+        note.x = wa.position.x + wa.size.width as i32 - w - margin;
+        note.y = wa.position.y + (wa.size.height as i32 - h) / 2;
     }
     fit_on_screen(app, &mut note);
 
@@ -543,7 +548,22 @@ fn main() {
                         button: MouseButton::Left,
                         button_state: MouseButtonState::Up,
                         ..
-                    } => bring_notes_to_front(tray.app_handle()),
+                    } => {
+                        // Tauri only emits DoubleClick on Windows, so detect it from click timing.
+                        #[cfg(target_os = "macos")]
+                        {
+                            static LAST_CLICK: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+                            let mut last = LAST_CLICK.lock().unwrap();
+                            let now = std::time::Instant::now();
+                            if last.is_some_and(|t| now.duration_since(t) < DOUBLE_CLICK_INTERVAL) {
+                                *last = None;
+                                create_note(tray.app_handle());
+                                return;
+                            }
+                            *last = Some(now);
+                        }
+                        bring_notes_to_front(tray.app_handle())
+                    }
                     TrayIconEvent::DoubleClick {
                         button: MouseButton::Left,
                         ..

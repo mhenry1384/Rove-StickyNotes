@@ -1,6 +1,6 @@
 [package]
 name = "rove-stickynotes"
-version = "0.1.11"
+version = "0.1.15"
 description = "Rove StickyNotes, a system tray sticky notes application"
 authors = ["you"]
 edition = "2021"
