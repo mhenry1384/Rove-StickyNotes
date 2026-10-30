@@ -200,13 +200,26 @@ fn create_note(app: &AppHandle) {
         y: 0,
         width: DEFAULT_WIDTH,
         height: DEFAULT_HEIGHT,
-        on_top: false,
+        on_top: true,
         closed_at: None,
     };
-    // Open near the mouse (i.e. near the tray icon), then pull it fully on screen.
+    // Open horizontally near the mouse (i.e. near the tray icon) but vertically centred in the
+    // work area of the monitor under the mouse, then pull it fully on screen.
     if let Ok(pos) = app.cursor_position() {
         note.x = pos.x as i32 - 140;
         note.y = pos.y as i32 - 120;
+        let monitor = app.available_monitors().unwrap_or_default().into_iter().find(|m| {
+            let (p, s) = (m.position(), m.size());
+            pos.x >= p.x as f64
+                && pos.x < p.x as f64 + s.width as f64
+                && pos.y >= p.y as f64
+                && pos.y < p.y as f64 + s.height as f64
+        });
+        if let Some(m) = monitor {
+            let wa = m.work_area();
+            let h = (note.height * m.scale_factor()).round() as i32;
+            note.y = wa.position.y + (wa.size.height as i32 - h) / 2;
+        }
     }
     fit_on_screen(app, &mut note);
 
