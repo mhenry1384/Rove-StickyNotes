@@ -4,7 +4,7 @@
 
 Every time you do a release build (`npm run build`):
 
-1. **Increment the version number** before building. Bump the patch version (e.g. `0.1.1` → `0.1.2`) unless told otherwise, and keep these in sync:
+1. **If there are uncommitted changes** (check `git status --porcelain`), **increment the version number** before building. If the working tree is clean, build without bumping. Bump the patch version (e.g. `0.1.1` → `0.1.2`) unless told otherwise, and keep these in sync:
    - `src-tauri/tauri.conf.json` (`version`, shown in the tray menu's About item)
    - `package.json` (`version`)
    - `src-tauri/Cargo.toml` (`[package] version`)
