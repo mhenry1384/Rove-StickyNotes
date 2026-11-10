@@ -14,6 +14,10 @@ Every time you do a release build, on Windows or macOS:
    - `package-lock.json` (both the top-level `version` and the one under `packages[""]`)
    - `src-tauri/Cargo.toml` (`[package] version`)
    - `src-tauri/Cargo.lock` (the `version` of the `rove-stickynotes` package)
+
+   Bump `package.json` and `package-lock.json` together by running `npm version patch --no-git-tag-version`. Never edit the version in `package.json` by hand, because that leaves `package-lock.json` behind.
+
+   **Before building, whether or not you bumped, confirm all the files above show the same version.** If a lockfile is behind on a clean tree, correct it to match without bumping the version, and commit it.
 2. **If the app is already running, stop it** before building, without asking:
    - Windows:
      ```powershell
