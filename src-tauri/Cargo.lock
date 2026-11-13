@@ -2824,7 +2824,7 @@ dependencies = [
 
 [[package]]
 name = "rove-stickynotes"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "serde",
  "serde_json",

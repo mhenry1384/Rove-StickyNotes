@@ -31,11 +31,17 @@ function setPin(value) {
 
 // Size the window to fit the text (up to MAX_AUTO_LINES lines).
 async function fitToText() {
-  measure.style.width = `${text.clientWidth}px`;
+  // Measure at the textarea's full, unrounded width. clientWidth is rounded to whole pixels
+  // and shrinks when a scrollbar shows, and either can make the measured wrapping differ from
+  // the real wrapping. That made the note flicker a line taller and shorter in a loop when a
+  // word sat right at the wrap point.
+  measure.style.width = `${text.getBoundingClientRect().width}px`;
   measure.value = text.value;
   const contentHeight = measure.scrollHeight;
   const maxHeight = MAX_AUTO_LINES * lineHeight + 2 * padY;
   const textHeight = Math.min(contentHeight, maxHeight);
+  // Only allow a scrollbar once the note has stopped growing; below that the text always fits.
+  text.style.overflowY = contentHeight > maxHeight ? "auto" : "hidden";
   // Size the textarea right away so it never has to scroll while the window catches up;
   // otherwise the text jumps up past the top margin for a frame on each new line.
   text.style.height = `${textHeight}px`;
